@@ -1,4 +1,9 @@
 # coding=utf-8
+
+# Versión del detect_text_emotion pero sin la estructura de una clase.
+# Se utiliza para entrenar el corpus y crear el archivo serializado corpus_model.m
+# que contiene el corpus ya entrenado
+
 import sys
 import csv
 import re
@@ -19,8 +24,9 @@ from sklearn.cross_validation import train_test_split
 from sklearn.metrics import classification_report
 from sklearn.metrics import accuracy_score
 
-# Descarcar stopwords
+# Si es la primera vez se tienen que descarcar los stopwords de:
 # nltk.download("stopwords")
+
 spanish_stopwords = stopwords.words('spanish')
 stemmer = SnowballStemmer('spanish')
 non_words = list(punctuation)
@@ -37,6 +43,7 @@ def cargar_corpus_entrenamiento(corpus):
         for row in reader:
             # skip missing data
             #print(row[0])
+            #print(row[1])
             if row[0] and row[1]:
                 polaridad.append(row[0])
                 texto.append(row[1])
@@ -67,11 +74,12 @@ def tokenize(texto):
 # Definición del vector de caracteristicas
 count_vectorizer = CountVectorizer(
     analyzer='word',
-    tokenizer=tokenize,
+    tokenizer=None,
     lowercase=True,
     stop_words=spanish_stopwords
 )
 
+# Crea el pipeline junto con el clasificador
 text_clf = Pipeline([('vect', count_vectorizer),
                      ('tfidf', TfidfTransformer(use_idf=False)),
                      ('clf', BernoulliNB()),
@@ -85,13 +93,13 @@ text_clf = Pipeline([('vect', count_vectorizer),
 def preprocess_train():
     polaridad,texto = cargar_corpus_entrenamiento('data/train_corpus.csv')
     text_clf.fit(texto, polaridad)
-    modelo = open("data/model.m","w")
+    modelo = open("data/corpus_model.m","wb")
     cPickle.dump(text_clf, modelo)
     modelo.close()
 
 # Dado un texto predice su sentimiento
 def obtener_sentimiento(texto):
-    modelo = open("data/model.m", "r")
+    modelo = open("data/corpus_model.m", "rb")
     text_clf2 = cPickle.load(modelo)
     modelo.close()
 
@@ -119,7 +127,7 @@ def test_corpus():
         reader = csv.reader(csv_file)
         for row in reader:
             texto.append(row[0])
-    clf = joblib.load('data/corpus.pkl')
+    clf = joblib.load('data/corpus_model.m')
     #count_vectorizer.vocabulary = joblib.load("data/texto_corpus.pkl")
     newTexto = count_vectorizer.transform(texto)
     tfidf_data = TfidfTransformer(use_idf=False).fit_transform(newTexto)
@@ -128,14 +136,15 @@ def test_corpus():
 
 def main():
     print("Iniciando predictor...")
+    # Si es la primera vez se tiene que entrenar el corpus, después ya no es necesario
     preprocess_train()
     print(obtener_sentimiento('Hoy es un dia complicado'))
     print(obtener_sentimiento('Hacer ejercicio es bueno para tu salud'))
+    print(obtener_sentimiento('Programar en Java es divertido'))
+    print(obtener_sentimiento('Programar en Java es aburrido'))
     #test_corpus()
-    evaluar_modelo()
+    #evaluar_modelo()
     print("Fin predictor...")
 
 if __name__ == '__main__':
     main()
-
-
